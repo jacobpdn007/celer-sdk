@@ -5,7 +5,9 @@ import MantaABI from "./abi/manta.json";
 
 const userPrivateKey = "";
 
-const ethProvider = new ethers.providers.JsonRpcProvider("https://ethereum-goerli.publicnode.com");
+const ethProvider = new ethers.providers.JsonRpcProvider(
+  "https://ethereum-goerli.publicnode.com"
+);
 const moonbeamProvider = new ethers.providers.JsonRpcProvider("");
 
 const ethChainID = 5;
@@ -22,7 +24,8 @@ const moonbeamMantaContract = new ethers.Contract(
 
 // refer to https://github.com/celer-network/sgn-v2-contracts/blob/b0cf02c15e25f66279420e3ff6a8b2fe07404bab/contracts/Bridge.sol
 const ethBridgeContractAddress = "0x358234B325EF9eA8115291A8b81b7d33A2Fa762D";
-const moonbeamBridgeContractAddress = "0x358234B325EF9eA8115291A8b81b7d33A2Fa762D";
+const moonbeamBridgeContractAddress =
+  "0x358234B325EF9eA8115291A8b81b7d33A2Fa762D";
 const bridgeContractABI = BridgeABI.abi;
 const ethBridgeContract = new ethers.Contract(
   ethBridgeContractAddress,
@@ -99,11 +102,16 @@ async function send(sourceChain: string) {
 
 async function getTransferStatus(transferID: string): Promise<any> {
   try {
-    const response = await axios.get(`${celerEndpoint}/v2/getTransferStatus`, {
-      params: {
-        transfer_id: transferID,
-      },
-    });
+    const data = { transfer_id: transferID };
+    const response = await axios.post(
+      `${celerEndpoint}/v2/getTransferStatus`,
+      data,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
     return response.data;
   } catch (error) {
     console.error("Error:", error);
@@ -112,11 +120,11 @@ async function getTransferStatus(transferID: string): Promise<any> {
 }
 
 async function main() {
-    await approve("eth");
-    const transferID = await send("eth");
+  await approve("eth");
+  const transferID = await send("eth");
 
-    let status = await getTransferStatus(transferID);
-    console.log(status);
+  let status = await getTransferStatus(transferID);
+  console.log(status);
 }
 
 main()
