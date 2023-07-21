@@ -5,50 +5,53 @@ import MantaABI from "./abi/manta.json";
 
 const userPrivateKey = "";
 
+const mantaContractABI = MantaABI.abi;
+const bridgeContractABI = BridgeABI.abi;
+
 const ethProvider = new ethers.providers.JsonRpcProvider(
   "https://ethereum-goerli.publicnode.com"
 );
-const moonbeamProvider = new ethers.providers.JsonRpcProvider("");
-
 const ethChainID = 5;
-const moonbeamChainID = 3441005;
-
 const ethMantaAddress = "0xd9b0DDb3e3F3721Da5d0B20f96E0817769c2B46D";
-const moonbeamMantaAddress = "0xd9b0DDb3e3F3721Da5d0B20f96E0817769c2B46D";
-const mantaContractABI = MantaABI.abi;
-const ethMantaContract = new ethers.Contract(ethMantaAddress, mantaContractABI);
-const moonbeamMantaContract = new ethers.Contract(
-  moonbeamMantaAddress,
-  mantaContractABI
-);
-
-// refer to https://github.com/celer-network/sgn-v2-contracts/blob/b0cf02c15e25f66279420e3ff6a8b2fe07404bab/contracts/Bridge.sol
 const ethBridgeContractAddress = "0x358234B325EF9eA8115291A8b81b7d33A2Fa762D";
-const moonbeamBridgeContractAddress =
-  "0x358234B325EF9eA8115291A8b81b7d33A2Fa762D";
-const bridgeContractABI = BridgeABI.abi;
+const ethMantaContract = new ethers.Contract(ethMantaAddress, mantaContractABI);
 const ethBridgeContract = new ethers.Contract(
   ethBridgeContractAddress,
   bridgeContractABI
+);
+
+const moonbeamProvider = new ethers.providers.JsonRpcProvider(
+  "https://rpc.api.moonbase.moonbeam.network"
+);
+const moonbeamChainID = 1287;
+const moonbeamMantaAddress = "0xfFFffFFf7D3875460d4509eb8d0362c611B4E841";
+const moonbeamBridgeContractAddress =
+  "0x841ce48F9446C8E281D3F1444cB859b4A6D0738C";
+const moonbeamMantaContract = new ethers.Contract(
+  moonbeamMantaAddress,
+  mantaContractABI
 );
 const moonbeamBridgeContract = new ethers.Contract(
   moonbeamBridgeContractAddress,
   bridgeContractABI
 );
 
-const celerEndpoint = "https://cbridge-v2-test.celer.network/";
+const celerEndpoint = "https://cbridge-v2-test.celer.network";
 
 async function approve(sourceChain: string) {
   let user;
   if (sourceChain == "eth") {
     user = new ethers.Wallet(userPrivateKey, ethProvider);
+    await ethMantaContract
+      .connect(user)
+      .approve(ethBridgeContractAddress, ethers.constants.MaxUint256);
   } else {
     user = new ethers.Wallet(userPrivateKey, moonbeamProvider);
+    await moonbeamMantaContract
+      .connect(user)
+      .approve(moonbeamBridgeContractAddress, ethers.constants.MaxUint256);
   }
 
-  await ethMantaContract
-    .connect(user)
-    .approve(ethBridgeContractAddress, ethers.constants.MaxUint256);
   console.log(`${user.address} approve the bridge contract on ${sourceChain}`);
 }
 
@@ -56,14 +59,20 @@ async function send(sourceChain: string) {
   let user;
   let srcChainID;
   let dstChainID;
+  let sourceToken;
+  let bridge;
   if (sourceChain == "eth") {
     user = new ethers.Wallet(userPrivateKey, ethProvider);
     srcChainID = ethChainID;
     dstChainID = moonbeamChainID;
+    sourceToken = ethMantaAddress;
+    bridge = ethBridgeContract;
   } else {
     user = new ethers.Wallet(userPrivateKey, moonbeamProvider);
     srcChainID = moonbeamChainID;
     dstChainID = ethChainID;
+    sourceToken = moonbeamMantaAddress;
+    bridge = moonbeamBridgeContract;
   }
 
   // send 100 manta from eth->moonbeam, max slippage is 0.5%
@@ -78,7 +87,7 @@ async function send(sourceChain: string) {
     [
       user.address, /// User's wallet address,
       user.address, /// User's wallet address,
-      ethMantaAddress, /// Wrap token address/ ERC20 token address
+      sourceToken, /// ERC20 token address
       ethers.utils.parseEther("100").toString(), /// Send amount in String
       dstChainID.toString(), /// Destination chain id
       nonce.toString(), /// Nonce
@@ -86,11 +95,11 @@ async function send(sourceChain: string) {
     ]
   );
 
-  await ethBridgeContract
+  await bridge
     .connect(user)
     .send(
       user.address,
-      ethMantaAddress,
+      sourceToken,
       ethers.utils.parseEther("100"),
       dstChainID,
       nonce,
@@ -120,8 +129,8 @@ async function getTransferStatus(transferID: string): Promise<any> {
 }
 
 async function main() {
-  await approve("eth");
-  const transferID = await send("eth");
+  await approve("moonbeam");
+  const transferID = await send("moonbeam");
 
   let status = await getTransferStatus(transferID);
   console.log(status);
